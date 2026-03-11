@@ -4,14 +4,10 @@ const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 const bestEl = document.getElementById("best");
 const messageEl = document.getElementById("message");
-const startBtn = document.getElementById("startBtn");
 
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
+let viewWidth = 0;
+let viewHeight = 0;
+let dpr = 1;
 
 let gameRunning = false;
 let score = 0;
@@ -35,12 +31,36 @@ let spawnTimer = 0;
 let orbTimer = 0;
 let lastTime = 0;
 
+function resizeCanvas() {
+  dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+
+  const vv = window.visualViewport;
+  viewWidth = Math.round(vv ? vv.width : window.innerWidth);
+  viewHeight = Math.round(vv ? vv.height : window.innerHeight);
+
+  canvas.style.width = `${viewWidth}px`;
+  canvas.style.height = `${viewHeight}px`;
+
+  canvas.width = Math.floor(viewWidth * dpr);
+  canvas.height = Math.floor(viewHeight * dpr);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  if (!gameRunning) {
+    player.x = viewWidth / 2;
+    player.y = viewHeight * 0.8;
+  } else {
+    player.x = Math.max(player.radius, Math.min(viewWidth - player.radius, player.x));
+    player.y = viewHeight * 0.8;
+  }
+}
+
 function resetGame() {
   score = 0;
   scoreEl.textContent = "Score: 0";
 
-  player.x = canvas.width / 2;
-  player.y = canvas.height * 0.8;
+  player.x = viewWidth / 2;
+  player.y = viewHeight * 0.8;
   player.glow = 0;
 
   hazards = [];
@@ -48,11 +68,12 @@ function resetGame() {
   stars = [];
   spawnTimer = 0;
   orbTimer = 0;
+  touchX = null;
 
   for (let i = 0; i < 60; i++) {
     stars.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
+      x: Math.random() * viewWidth,
+      y: Math.random() * viewHeight,
       r: Math.random() * 2 + 1,
       speed: Math.random() * 0.4 + 0.2
     });
@@ -70,8 +91,10 @@ function startGame() {
 function endGame() {
   gameRunning = false;
 
-  if (score > best) {
-    best = score;
+  const finalScore = Math.floor(score);
+
+  if (finalScore > best) {
+    best = finalScore;
     localStorage.setItem("auraDriftBest", best);
     bestEl.textContent = `Best: ${best}`;
   }
@@ -79,18 +102,16 @@ function endGame() {
   messageEl.classList.remove("hidden");
   messageEl.innerHTML = `
     <h1>Game Over</h1>
-    <p>Score: ${score}</p>
+    <p>Score: ${finalScore}</p>
     <p>Best: ${best}</p>
     <button id="startBtn">Play Again</button>
   `;
-
-  document.getElementById("startBtn").addEventListener("click", startGame);
 }
 
 function spawnHazard() {
   const size = Math.random() * 18 + 16;
   hazards.push({
-    x: Math.random() * (canvas.width - size * 2) + size,
+    x: Math.random() * (viewWidth - size * 2) + size,
     y: -size,
     radius: size,
     speed: Math.random() * 2.2 + 2.4
@@ -100,7 +121,7 @@ function spawnHazard() {
 function spawnOrb() {
   const size = 10;
   orbs.push({
-    x: Math.random() * (canvas.width - size * 2) + size,
+    x: Math.random() * (viewWidth - size * 2) + size,
     y: -size,
     radius: size,
     speed: 3
@@ -110,9 +131,9 @@ function spawnOrb() {
 function update(dt) {
   for (const star of stars) {
     star.y += star.speed * dt * 0.06;
-    if (star.y > canvas.height) {
+    if (star.y > viewHeight) {
       star.y = -5;
-      star.x = Math.random() * canvas.width;
+      star.x = Math.random() * viewWidth;
     }
   }
 
@@ -121,7 +142,8 @@ function update(dt) {
     player.x += dx * player.speed * dt;
   }
 
-  player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+  player.x = Math.max(player.radius, Math.min(viewWidth - player.radius, player.x));
+  player.y = viewHeight * 0.8;
   player.glow = Math.max(0, player.glow - dt * 0.01);
 
   spawnTimer += dt;
@@ -145,13 +167,14 @@ function update(dt) {
     orb.y += orb.speed * dt * 0.06;
   }
 
-  hazards = hazards.filter(h => h.y < canvas.height + 50);
-  orbs = orbs.filter(o => o.y < canvas.height + 50);
+  hazards = hazards.filter((h) => h.y < viewHeight + 50);
+  orbs = orbs.filter((o) => o.y < viewHeight + 50);
 
   for (const hazard of hazards) {
     const dx = hazard.x - player.x;
     const dy = hazard.y - player.y;
     const dist = Math.hypot(dx, dy);
+
     if (dist < hazard.radius + player.radius) {
       endGame();
       return;
@@ -168,7 +191,6 @@ function update(dt) {
       orbs.splice(i, 1);
       score += 10;
       player.glow = 1;
-      scoreEl.textContent = `Score: ${score}`;
     }
   }
 
@@ -236,7 +258,7 @@ function drawOrbs() {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, viewWidth, viewHeight);
   drawBackground();
   drawOrbs();
   drawHazards();
@@ -276,16 +298,36 @@ canvas.addEventListener("touchend", () => {
   touchX = null;
 });
 
+canvas.addEventListener("touchcancel", () => {
+  touchX = null;
+});
+
 canvas.addEventListener("mousedown", (e) => {
   setTouchPosition(e.clientX);
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (touchX !== null) setTouchPosition(e.clientX);
+  if (touchX !== null) {
+    setTouchPosition(e.clientX);
+  }
 });
 
 window.addEventListener("mouseup", () => {
   touchX = null;
 });
 
-startBtn.addEventListener("click", startGame);
+document.addEventListener("click", (e) => {
+  if (e.target && e.target.id === "startBtn") {
+    startGame();
+  }
+});
+
+window.addEventListener("resize", resizeCanvas);
+window.addEventListener("orientationchange", resizeCanvas);
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", resizeCanvas);
+}
+
+resizeCanvas();
+draw();
