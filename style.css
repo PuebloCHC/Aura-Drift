@@ -1,0 +1,75 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: black;
+  font-family: Arial, sans-serif;
+  touch-action: none;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(to bottom, #050816, #0b1630, #1a2750);
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  color: white;
+}
+
+#score, #best {
+  position: absolute;
+  left: 16px;
+  font-size: 20px;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+#score {
+  top: 16px;
+}
+
+#best {
+  top: 44px;
+}
+
+#message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0,0,0,0.35);
+  text-align: center;
+  padding: 24px;
+  pointer-events: auto;
+}
+
+#message.hidden {
+  display: none;
+}
+
+#message h1 {
+  margin: 0;
+  font-size: 40px;
+}
+
+#message p {
+  margin: 0;
+  font-size: 18px;
+}
+
+#startBtn {
+  margin-top: 12px;
+  padding: 12px 24px;
+  font-size: 18px;
+  border: none;
+  border-radius: 12px;
+  background: white;
+  color: black;
+}
