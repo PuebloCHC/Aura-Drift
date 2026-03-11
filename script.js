@@ -19,17 +19,20 @@ const player = {
   x: 0,
   y: 0,
   radius: 18,
-  speed: 0.18,
+  speed: 1,
   glow: 0
 };
 
 let hazards = [];
 let orbs = [];
 let stars = [];
-let touchX = null;
 let spawnTimer = 0;
 let orbTimer = 0;
 let lastTime = 0;
+
+let activeTouchId = null;
+let dragging = false;
+let dragOffsetX = 0;
 
 function resizeCanvas() {
   dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
@@ -68,7 +71,10 @@ function resetGame() {
   stars = [];
   spawnTimer = 0;
   orbTimer = 0;
-  touchX = null;
+
+  activeTouchId = null;
+  dragging = false;
+  dragOffsetX = 0;
 
   for (let i = 0; i < 60; i++) {
     stars.push({
@@ -98,6 +104,9 @@ function endGame() {
     localStorage.setItem("auraDriftBest", best);
     bestEl.textContent = `Best: ${best}`;
   }
+
+  activeTouchId = null;
+  dragging = false;
 
   messageEl.classList.remove("hidden");
   messageEl.innerHTML = `
@@ -135,11 +144,6 @@ function update(dt) {
       star.y = -5;
       star.x = Math.random() * viewWidth;
     }
-  }
-
-  if (touchX !== null) {
-    const dx = touchX - player.x;
-    player.x += dx * player.speed * dt;
   }
 
   player.x = Math.max(player.radius, Math.min(viewWidth - player.radius, player.x));
@@ -279,41 +283,57 @@ function gameLoop(timestamp) {
   }
 }
 
-function setTouchPosition(clientX) {
+function getCanvasXFromClientX(clientX) {
   const rect = canvas.getBoundingClientRect();
-  touchX = clientX - rect.left;
+  return clientX - rect.left;
 }
 
 canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
-  setTouchPosition(e.touches[0].clientX);
+
+  if (activeTouchId !== null) return;
+
+  const touch = e.changedTouches[0];
+  activeTouchId = touch.identifier;
+  dragging = true;
+
+  const touchX = getCanvasXFromClientX(touch.clientX);
+  dragOffsetX = touchX - player.x;
 }, { passive: false });
 
 canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
-  setTouchPosition(e.touches[0].clientX);
+
+  if (activeTouchId === null || !dragging) return;
+
+  for (const touch of e.touches) {
+    if (touch.identifier === activeTouchId) {
+      const touchX = getCanvasXFromClientX(touch.clientX);
+      player.x = touchX - dragOffsetX;
+      player.x = Math.max(player.radius, Math.min(viewWidth - player.radius, player.x));
+      break;
+    }
+  }
 }, { passive: false });
 
-canvas.addEventListener("touchend", () => {
-  touchX = null;
-});
-
-canvas.addEventListener("touchcancel", () => {
-  touchX = null;
-});
-
-canvas.addEventListener("mousedown", (e) => {
-  setTouchPosition(e.clientX);
-});
-
-canvas.addEventListener("mousemove", (e) => {
-  if (touchX !== null) {
-    setTouchPosition(e.clientX);
+canvas.addEventListener("touchend", (e) => {
+  for (const touch of e.changedTouches) {
+    if (touch.identifier === activeTouchId) {
+      activeTouchId = null;
+      dragging = false;
+      break;
+    }
   }
 });
 
-window.addEventListener("mouseup", () => {
-  touchX = null;
+canvas.addEventListener("touchcancel", (e) => {
+  for (const touch of e.changedTouches) {
+    if (touch.identifier === activeTouchId) {
+      activeTouchId = null;
+      dragging = false;
+      break;
+    }
+  }
 });
 
 document.addEventListener("click", (e) => {
