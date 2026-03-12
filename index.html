@@ -13,13 +13,24 @@
   <canvas id="game"></canvas>
 
   <div id="ui">
-    <div id="score">Score: 0</div>
-    <div id="best">Best: 0</div>
+    <div id="hudLeft">
+      <div id="score">Score: 0</div>
+      <div id="best">Best: 0</div>
+    </div>
+
+    <div id="hudRight">
+      <div id="power">Power: 1</div>
+      <div id="chargeBarWrap">
+        <div id="chargeBar"></div>
+      </div>
+      <div id="chargeText">Aura: 0 / 100</div>
+    </div>
 
     <div id="message">
       <h1>Aura Drift</h1>
-      <p>Touch and drag left or right</p>
-      <p>Avoid red hazards, collect blue orbs</p>
+      <p>Drag left and right with one thumb</p>
+      <p>Auto-fire at falling enemies</p>
+      <p>Collect blue orbs to power up your dragon</p>
       <button id="startBtn">Start</button>
     </div>
   </div>
