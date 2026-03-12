@@ -5,7 +5,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   position: fixed;
-  background: #02040d;
+  background: black;
   font-family: Arial, sans-serif;
   touch-action: none;
   -webkit-user-select: none;
@@ -20,7 +20,7 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 50% 20%, #17315e 0%, #0b1630 35%, #050816 70%, #02040d 100%);
+  background: linear-gradient(to bottom, #07101d, #10264a, #1c4270);
 }
 
 #ui {
@@ -30,43 +30,25 @@ canvas {
   color: white;
 }
 
-#hudLeft,
-#hudRight {
+#score,
+#best,
+#power {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top));
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
-  font-size: 18px;
+  left: 16px;
+  font-size: 20px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
-#hudLeft {
-  left: 14px;
+#score {
+  top: max(16px, env(safe-area-inset-top));
 }
 
-#hudRight {
-  right: 14px;
-  align-items: flex-end;
+#best {
+  top: calc(max(16px, env(safe-area-inset-top)) + 28px);
 }
 
-#chargeBarWrap {
-  width: 130px;
-  height: 12px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-}
-
-#chargeBar {
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(90deg, #61e0ff, #9dffb6);
-}
-
-#chargeText {
-  font-size: 14px;
+#power {
+  top: calc(max(16px, env(safe-area-inset-top)) + 56px);
 }
 
 #message {
@@ -89,7 +71,7 @@ canvas {
 
 #message h1 {
   margin: 0;
-  font-size: 42px;
+  font-size: 40px;
 }
 
 #message p {
@@ -105,5 +87,4 @@ canvas {
   border-radius: 12px;
   background: white;
   color: black;
-  pointer-events: auto;
 }
