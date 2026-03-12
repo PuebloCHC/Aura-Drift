@@ -13,18 +13,17 @@ let dpr = 1;
 let gameRunning = false;
 let score = 0;
 let best = Number(localStorage.getItem("auraDriftBest") || 0);
-
 bestEl.textContent = `Best: ${best}`;
 
 const player = {
   x: 0,
   y: 0,
-  width: 56,
-  height: 42,
+  width: 68,
+  height: 48,
   glow: 0,
   power: 1,
-  wingPhase: 0,
-  firing: false
+  firing: false,
+  fireBreath: 0
 };
 
 let enemies = [];
@@ -47,21 +46,17 @@ function clamp(value, min, max) {
 
 function resizeCanvas() {
   dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-
   const vv = window.visualViewport;
   viewWidth = Math.round(vv ? vv.width : window.innerWidth);
   viewHeight = Math.round(vv ? vv.height : window.innerHeight);
 
   canvas.style.width = `${viewWidth}px`;
   canvas.style.height = `${viewHeight}px`;
-
   canvas.width = Math.floor(viewWidth * dpr);
   canvas.height = Math.floor(viewHeight * dpr);
-
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   player.y = viewHeight * 0.82;
-
   if (!gameRunning) {
     player.x = viewWidth / 2;
   } else {
@@ -74,7 +69,7 @@ function resetGame() {
   player.power = 1;
   player.glow = 0;
   player.firing = false;
-  player.wingPhase = 0;
+  player.fireBreath = 0;
 
   enemies = [];
   orbs = [];
@@ -99,8 +94,8 @@ function resetGame() {
     stars.push({
       x: Math.random() * viewWidth,
       y: Math.random() * viewHeight,
-      r: Math.random() * 2 + 1,
-      speed: Math.random() * 0.6 + 0.2
+      r: Math.random() * 2 + 0.5,
+      speed: Math.random() * 0.8 + 0.2
     });
   }
 }
@@ -116,9 +111,9 @@ function startGame() {
 function endGame() {
   gameRunning = false;
   player.firing = false;
+  player.fireBreath = 0;
 
   const finalScore = Math.floor(score);
-
   if (finalScore > best) {
     best = finalScore;
     localStorage.setItem("auraDriftBest", best);
@@ -143,42 +138,41 @@ function spawnEnemy() {
     x: Math.random() * (viewWidth - size * 2) + size,
     y: -size - 10,
     radius: size,
-    speed: Math.random() * 1.6 + 1.8,
-    hp: Math.max(1, Math.floor(player.power * 0.35) + 1),
-    wiggle: Math.random() * Math.PI * 2
+    speed: Math.random() * 1.8 + 1.6,
+    hp: Math.max(1, Math.floor(1 + player.power * 0.4))
   });
 }
 
-function spawnOrb(x = null, y = null) {
+function spawnOrb() {
   orbs.push({
-    x: x ?? (Math.random() * (viewWidth - 24) + 12),
-    y: y ?? -20,
+    x: Math.random() * (viewWidth - 24) + 12,
+    y: -20,
     radius: 10,
     speed: 2.4
   });
 }
 
 function shoot() {
-  const bulletSpeed = 8 + player.power * 0.4;
-  const damage = Math.max(1, Math.floor(player.power * 0.75));
+  const baseSpeed = 8 + player.power * 0.3;
+  const damage = Math.max(1, Math.floor(player.power * 0.7));
 
   if (player.power < 4) {
-    bullets.push({ x: player.x, y: player.y - 22, radius: 5, speed: bulletSpeed, damage });
+    bullets.push({ x: player.x + 24, y: player.y - 2, radius: 5, speed: baseSpeed, damage, vx: 0 });
     return;
   }
 
   if (player.power < 8) {
     bullets.push(
-      { x: player.x - 10, y: player.y - 18, radius: 5, speed: bulletSpeed, damage },
-      { x: player.x + 10, y: player.y - 18, radius: 5, speed: bulletSpeed, damage }
+      { x: player.x + 24, y: player.y - 6, radius: 5, speed: baseSpeed, damage, vx: -0.4 },
+      { x: player.x + 24, y: player.y + 4, radius: 5, speed: baseSpeed, damage, vx: 0.4 }
     );
     return;
   }
 
   bullets.push(
-    { x: player.x, y: player.y - 24, radius: 6, speed: bulletSpeed + 0.6, damage: damage + 1 },
-    { x: player.x - 14, y: player.y - 18, radius: 5, speed: bulletSpeed, damage },
-    { x: player.x + 14, y: player.y - 18, radius: 5, speed: bulletSpeed, damage }
+    { x: player.x + 26, y: player.y - 8, radius: 6, speed: baseSpeed + 0.5, damage: damage + 1, vx: 0 },
+    { x: player.x + 20, y: player.y - 14, radius: 5, speed: baseSpeed, damage, vx: -0.7 },
+    { x: player.x + 20, y: player.y + 10, radius: 5, speed: baseSpeed, damage, vx: 0.7 }
   );
 }
 
@@ -197,22 +191,22 @@ function update(dt) {
 
   player.x = clamp(player.x, player.width / 2, viewWidth - player.width / 2);
   player.y = viewHeight * 0.82;
-  player.glow = Math.max(0, player.glow - dt * 0.008);
-  player.wingPhase += dt * 0.02;
+  player.glow = Math.max(0, player.glow - dt * 0.007);
+  player.fireBreath = player.firing ? Math.min(1, player.fireBreath + dt * 0.01) : Math.max(0, player.fireBreath - dt * 0.015);
 
   enemyTimer += dt;
   orbTimer += dt;
   bulletTimer += dt;
 
-  const enemyDelay = Math.max(280, 900 - player.power * 18);
-  const bulletDelay = Math.max(105, 330 - player.power * 10);
+  const enemyDelay = Math.max(260, 900 - player.power * 20);
+  const bulletDelay = Math.max(100, 340 - player.power * 10);
 
   if (enemyTimer >= enemyDelay) {
     spawnEnemy();
     enemyTimer = 0;
   }
 
-  if (orbTimer >= 1350) {
+  if (orbTimer >= 1250) {
     spawnOrb();
     orbTimer = 0;
   }
@@ -222,25 +216,18 @@ function update(dt) {
     bulletTimer = 0;
   }
 
-  for (const enemy of enemies) {
-    enemy.y += enemy.speed * dt * 0.06;
-    enemy.x += Math.sin(enemy.y * 0.03 + enemy.wiggle) * 0.35;
-  }
-
-  for (const orb of orbs) {
-    orb.y += orb.speed * dt * 0.06;
-  }
-
+  for (const enemy of enemies) enemy.y += enemy.speed * dt * 0.06;
+  for (const orb of orbs) orb.y += orb.speed * dt * 0.06;
   for (const bullet of bullets) {
+    bullet.x += bullet.vx * dt * 0.06;
     bullet.y -= bullet.speed * dt * 0.06;
   }
 
   enemies = enemies.filter(enemy => enemy.y < viewHeight + 60 && enemy.hp > 0);
   orbs = orbs.filter(orb => orb.y < viewHeight + 40);
-  bullets = bullets.filter(bullet => bullet.y > -30);
+  bullets = bullets.filter(bullet => bullet.y > -30 && bullet.x > -20 && bullet.x < viewWidth + 20);
 
   const playerHitRadius = 18;
-
   for (const enemy of enemies) {
     if (circleHit(enemy.x, enemy.y, enemy.radius, player.x, player.y, playerHitRadius)) {
       endGame();
@@ -262,25 +249,21 @@ function update(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const bullet = bullets[i];
     let used = false;
-
     for (let j = enemies.length - 1; j >= 0; j--) {
       const enemy = enemies[j];
       if (circleHit(bullet.x, bullet.y, bullet.radius, enemy.x, enemy.y, enemy.radius)) {
         enemy.hp -= bullet.damage;
         bullets.splice(i, 1);
         used = true;
-
         if (enemy.hp <= 0) {
           score += 20;
-          enemies.splice(j, 1);
-          if (Math.random() < 0.35) {
-            spawnOrb(enemy.x, enemy.y);
+          if (Math.random() < 0.3) {
+            orbs.push({ x: enemy.x, y: enemy.y, radius: 10, speed: 2.1 });
           }
         }
         break;
       }
     }
-
     if (used) continue;
   }
 
@@ -300,86 +283,116 @@ function drawBackground() {
 function drawDragon() {
   const x = player.x;
   const y = player.y;
-  const flap = Math.sin(player.wingPhase) * 8;
-  const glowSize = 30 + player.glow * 22;
+  const flap = Math.sin(performance.now() * 0.015) * 8;
+  const glowSize = 24 + player.glow * 18;
 
-  const aura = ctx.createRadialGradient(x, y, 4, x, y, glowSize);
-  aura.addColorStop(0, "rgba(80,220,255,0.35)");
-  aura.addColorStop(0.5, "rgba(80,220,255,0.15)");
-  aura.addColorStop(1, "rgba(80,220,255,0)");
+  const gradient = ctx.createRadialGradient(x, y, 6, x, y, glowSize + 10);
+  gradient.addColorStop(0, "rgba(80,220,255,0.45)");
+  gradient.addColorStop(1, "rgba(80,220,255,0)");
   ctx.beginPath();
-  ctx.arc(x, y, glowSize, 0, Math.PI * 2);
-  ctx.fillStyle = aura;
+  ctx.arc(x, y, glowSize + 8, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
   ctx.fill();
 
-  ctx.fillStyle = "#5ce1e6";
+  // Wings
+  ctx.fillStyle = "#4fd6ff";
   ctx.beginPath();
-  ctx.moveTo(x - 8, y + 4);
-  ctx.lineTo(x - 26, y - 10 - flap * 0.35);
-  ctx.lineTo(x - 14, y + 10);
+  ctx.moveTo(x - 8, y - 4);
+  ctx.quadraticCurveTo(x - 34, y - 28 - flap, x - 18, y + 3);
+  ctx.quadraticCurveTo(x - 30, y + 10, x - 6, y + 8);
   ctx.closePath();
   ctx.fill();
 
   ctx.beginPath();
-  ctx.moveTo(x + 8, y + 4);
-  ctx.lineTo(x + 26, y - 10 - flap * 0.35);
-  ctx.lineTo(x + 14, y + 10);
+  ctx.moveTo(x - 2, y - 2);
+  ctx.quadraticCurveTo(x - 24, y + 22 + flap * 0.4, x - 5, y + 12);
+  ctx.quadraticCurveTo(x - 18, y + 18, x + 2, y + 8);
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = "#2fd0ff";
+  // Tail
+  ctx.strokeStyle = "#2cb7e8";
+  ctx.lineWidth = 7;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(x, y - 22);
-  ctx.lineTo(x - 12, y - 4);
-  ctx.lineTo(x - 12, y + 12);
-  ctx.lineTo(x, y + 18);
-  ctx.lineTo(x + 12, y + 12);
-  ctx.lineTo(x + 12, y - 4);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#0e86c9";
-  ctx.beginPath();
-  ctx.moveTo(x, y + 18);
-  ctx.lineTo(x - 6, y + 30);
-  ctx.lineTo(x, y + 24);
-  ctx.lineTo(x + 6, y + 30);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#baf8ff";
-  ctx.beginPath();
-  ctx.arc(x - 4, y - 10, 2.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x + 4, y - 10, 2.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x - 5, y - 22);
-  ctx.lineTo(x - 1, y - 28);
-  ctx.lineTo(x + 1, y - 22);
-  ctx.moveTo(x + 5, y - 22);
-  ctx.lineTo(x + 1, y - 28);
-  ctx.lineTo(x - 1, y - 22);
+  ctx.moveTo(x - 18, y + 2);
+  ctx.quadraticCurveTo(x - 34, y + 6, x - 42, y - 2);
   ctx.stroke();
+
+  // Body
+  ctx.fillStyle = "#27c1ff";
+  ctx.beginPath();
+  ctx.ellipse(x, y, 22, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Belly
+  ctx.fillStyle = "#a6efff";
+  ctx.beginPath();
+  ctx.ellipse(x + 3, y + 2, 11, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Neck and head
+  ctx.fillStyle = "#27c1ff";
+  ctx.beginPath();
+  ctx.ellipse(x + 22, y - 3, 13, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Horns
+  ctx.fillStyle = "#d7f8ff";
+  ctx.beginPath();
+  ctx.moveTo(x + 27, y - 12);
+  ctx.lineTo(x + 31, y - 21);
+  ctx.lineTo(x + 22, y - 15);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x + 19, y - 12);
+  ctx.lineTo(x + 20, y - 21);
+  ctx.lineTo(x + 14, y - 14);
+  ctx.closePath();
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = "#04131f";
+  ctx.beginPath();
+  ctx.arc(x + 26, y - 5, 2.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Snout
+  ctx.fillStyle = "#a6efff";
+  ctx.beginPath();
+  ctx.ellipse(x + 32, y - 1, 7, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Fire breath while firing
+  if (player.fireBreath > 0.05) {
+    const len = 18 + player.fireBreath * 22;
+    ctx.fillStyle = `rgba(255, ${160 + Math.floor(player.fireBreath * 60)}, 60, 0.9)`;
+    ctx.beginPath();
+    ctx.moveTo(x + 35, y - 4);
+    ctx.quadraticCurveTo(x + 40 + len, y, x + 35, y + 4);
+    ctx.closePath();
+    ctx.fill();
+  }
 }
 
 function drawEnemies() {
   for (const enemy of enemies) {
     ctx.beginPath();
     ctx.arc(enemy.x, enemy.y, enemy.radius + 8, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,80,80,0.13)";
+    ctx.fillStyle = "rgba(255,80,80,0.16)";
     ctx.fill();
 
-    ctx.fillStyle = "#ff655f";
+    ctx.fillStyle = "#f05656";
     ctx.beginPath();
-    ctx.moveTo(enemy.x, enemy.y - enemy.radius);
-    ctx.lineTo(enemy.x - enemy.radius * 0.75, enemy.y + enemy.radius * 0.8);
-    ctx.lineTo(enemy.x + enemy.radius * 0.75, enemy.y + enemy.radius * 0.8);
-    ctx.closePath();
+    ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#fff0f0";
+    ctx.beginPath();
+    ctx.arc(enemy.x - enemy.radius * 0.25, enemy.y - enemy.radius * 0.15, 2.5, 0, Math.PI * 2);
+    ctx.arc(enemy.x + enemy.radius * 0.25, enemy.y - enemy.radius * 0.15, 2.5, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -387,8 +400,8 @@ function drawEnemies() {
 function drawOrbs() {
   for (const orb of orbs) {
     ctx.beginPath();
-    ctx.arc(orb.x, orb.y, orb.radius + 8, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(80,180,255,0.18)";
+    ctx.arc(orb.x, orb.y, orb.radius + 7, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(80,180,255,0.2)";
     ctx.fill();
 
     ctx.beginPath();
@@ -400,18 +413,17 @@ function drawOrbs() {
 
 function drawBullets() {
   for (const bullet of bullets) {
-    const grad = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, bullet.radius * 3);
-    grad.addColorStop(0, "rgba(255,255,255,1)");
-    grad.addColorStop(0.35, "rgba(120,230,255,0.95)");
-    grad.addColorStop(1, "rgba(120,230,255,0)");
+    const gradient = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, bullet.radius + 5);
+    gradient.addColorStop(0, "rgba(255,255,200,1)");
+    gradient.addColorStop(1, "rgba(255,120,40,0)");
     ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, bullet.radius * 3, 0, Math.PI * 2);
-    ctx.fillStyle = grad;
+    ctx.arc(bullet.x, bullet.y, bullet.radius + 4, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
     ctx.fill();
 
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#bfffff";
+    ctx.fillStyle = "#ffb347";
     ctx.fill();
   }
 }
@@ -427,16 +439,11 @@ function draw() {
 
 function gameLoop(timestamp) {
   if (!gameRunning) return;
-
   const dt = Math.min(32, timestamp - lastTime);
   lastTime = timestamp;
-
   update(dt);
   draw();
-
-  if (gameRunning) {
-    requestAnimationFrame(gameLoop);
-  }
+  if (gameRunning) requestAnimationFrame(gameLoop);
 }
 
 function getCanvasXFromClientX(clientX) {
@@ -446,35 +453,31 @@ function getCanvasXFromClientX(clientX) {
 
 canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
-  if (!gameRunning) return;
   if (activeTouchId !== null) return;
-
   const touch = e.changedTouches[0];
   activeTouchId = touch.identifier;
   dragging = true;
   player.firing = true;
   bulletTimer = 9999;
-
   const touchX = getCanvasXFromClientX(touch.clientX);
   dragOffsetX = touchX - player.x;
-  player.x = clamp(touchX - dragOffsetX, player.width / 2, viewWidth - player.width / 2);
 }, { passive: false });
 
 canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
   if (activeTouchId === null || !dragging) return;
-
   for (const touch of e.touches) {
     if (touch.identifier === activeTouchId) {
       const touchX = getCanvasXFromClientX(touch.clientX);
-      player.x = clamp(touchX - dragOffsetX, player.width / 2, viewWidth - player.width / 2);
+      player.x = touchX - dragOffsetX;
+      player.x = clamp(player.x, player.width / 2, viewWidth - player.width / 2);
       break;
     }
   }
 }, { passive: false });
 
-canvas.addEventListener("touchend", (e) => {
-  for (const touch of e.changedTouches) {
+function releaseTouch(changedTouches) {
+  for (const touch of changedTouches) {
     if (touch.identifier === activeTouchId) {
       activeTouchId = null;
       dragging = false;
@@ -482,23 +485,13 @@ canvas.addEventListener("touchend", (e) => {
       break;
     }
   }
-});
+}
 
-canvas.addEventListener("touchcancel", (e) => {
-  for (const touch of e.changedTouches) {
-    if (touch.identifier === activeTouchId) {
-      activeTouchId = null;
-      dragging = false;
-      player.firing = false;
-      break;
-    }
-  }
-});
+canvas.addEventListener("touchend", (e) => releaseTouch(e.changedTouches));
+canvas.addEventListener("touchcancel", (e) => releaseTouch(e.changedTouches));
 
 document.addEventListener("click", (e) => {
-  if (e.target && e.target.id === "startBtn") {
-    startGame();
-  }
+  if (e.target && e.target.id === "startBtn") startGame();
 });
 
 window.addEventListener("resize", resizeCanvas);
