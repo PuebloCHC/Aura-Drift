@@ -9,28 +9,25 @@ const messageEl = document.getElementById("message");
 let viewWidth = 0;
 let viewHeight = 0;
 let dpr = 1;
-
 let gameRunning = false;
 let score = 0;
 let best = Number(localStorage.getItem("auraDriftBest") || 0);
-bestEl.textContent = `Best: ${best}`;
 
 const player = {
   x: 0,
   y: 0,
-  width: 68,
-  height: 48,
-  glow: 0,
+  width: 96,
+  height: 120,
   power: 1,
+  glow: 0,
   firing: false,
-  fireBreath: 0
+  firePulse: 0
 };
 
 let enemies = [];
 let orbs = [];
 let bullets = [];
 let stars = [];
-
 let enemyTimer = 0;
 let orbTimer = 0;
 let bulletTimer = 0;
@@ -39,6 +36,9 @@ let lastTime = 0;
 let activeTouchId = null;
 let dragging = false;
 let dragOffsetX = 0;
+
+bestEl.textContent = `Best: ${best}`;
+powerEl.textContent = `Power: ${player.power}`;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -60,7 +60,7 @@ function resizeCanvas() {
   if (!gameRunning) {
     player.x = viewWidth / 2;
   } else {
-    player.x = clamp(player.x, player.width / 2, viewWidth - player.width / 2);
+    player.x = clamp(player.x, player.width * 0.28, viewWidth - player.width * 0.28);
   }
 }
 
@@ -69,24 +69,19 @@ function resetGame() {
   player.power = 1;
   player.glow = 0;
   player.firing = false;
-  player.fireBreath = 0;
-
+  player.firePulse = 0;
   enemies = [];
   orbs = [];
   bullets = [];
   stars = [];
-
   enemyTimer = 0;
   orbTimer = 0;
   bulletTimer = 0;
-
   activeTouchId = null;
   dragging = false;
   dragOffsetX = 0;
-
   player.x = viewWidth / 2;
   player.y = viewHeight * 0.82;
-
   scoreEl.textContent = "Score: 0";
   powerEl.textContent = "Power: 1";
 
@@ -94,8 +89,8 @@ function resetGame() {
     stars.push({
       x: Math.random() * viewWidth,
       y: Math.random() * viewHeight,
-      r: Math.random() * 2 + 0.5,
-      speed: Math.random() * 0.8 + 0.2
+      r: Math.random() * 2.4 + 0.6,
+      speed: Math.random() * 0.55 + 0.15
     });
   }
 }
@@ -110,19 +105,15 @@ function startGame() {
 
 function endGame() {
   gameRunning = false;
-  player.firing = false;
-  player.fireBreath = 0;
-
   const finalScore = Math.floor(score);
   if (finalScore > best) {
     best = finalScore;
     localStorage.setItem("auraDriftBest", best);
     bestEl.textContent = `Best: ${best}`;
   }
-
   activeTouchId = null;
   dragging = false;
-
+  player.firing = false;
   messageEl.classList.remove("hidden");
   messageEl.innerHTML = `
     <h1>Game Over</h1>
@@ -133,13 +124,13 @@ function endGame() {
 }
 
 function spawnEnemy() {
-  const size = Math.random() * 16 + 20;
+  const size = Math.random() * 16 + 22;
   enemies.push({
     x: Math.random() * (viewWidth - size * 2) + size,
     y: -size - 10,
     radius: size,
-    speed: Math.random() * 1.8 + 1.6,
-    hp: Math.max(1, Math.floor(1 + player.power * 0.4))
+    speed: Math.random() * 1.3 + 1.9,
+    hp: Math.max(1, Math.floor(player.power * 0.45) + 1)
   });
 }
 
@@ -153,26 +144,27 @@ function spawnOrb() {
 }
 
 function shoot() {
-  const baseSpeed = 8 + player.power * 0.3;
-  const damage = Math.max(1, Math.floor(player.power * 0.7));
+  const bulletSpeed = 8 + player.power * 0.35;
+  const damage = Math.max(1, Math.floor(player.power * 0.8));
+  const noseY = player.y - player.height * 0.54;
 
   if (player.power < 4) {
-    bullets.push({ x: player.x + 24, y: player.y - 2, radius: 5, speed: baseSpeed, damage, vx: 0 });
+    bullets.push({ x: player.x, y: noseY, radius: 5, speed: bulletSpeed, damage });
     return;
   }
 
   if (player.power < 8) {
     bullets.push(
-      { x: player.x + 24, y: player.y - 6, radius: 5, speed: baseSpeed, damage, vx: -0.4 },
-      { x: player.x + 24, y: player.y + 4, radius: 5, speed: baseSpeed, damage, vx: 0.4 }
+      { x: player.x - 10, y: noseY + 6, radius: 5, speed: bulletSpeed, damage },
+      { x: player.x + 10, y: noseY + 6, radius: 5, speed: bulletSpeed, damage }
     );
     return;
   }
 
   bullets.push(
-    { x: player.x + 26, y: player.y - 8, radius: 6, speed: baseSpeed + 0.5, damage: damage + 1, vx: 0 },
-    { x: player.x + 20, y: player.y - 14, radius: 5, speed: baseSpeed, damage, vx: -0.7 },
-    { x: player.x + 20, y: player.y + 10, radius: 5, speed: baseSpeed, damage, vx: 0.7 }
+    { x: player.x, y: noseY, radius: 6, speed: bulletSpeed + 0.5, damage: damage + 1 },
+    { x: player.x - 14, y: noseY + 8, radius: 5, speed: bulletSpeed, damage },
+    { x: player.x + 14, y: noseY + 8, radius: 5, speed: bulletSpeed, damage }
   );
 }
 
@@ -189,24 +181,24 @@ function update(dt) {
     }
   }
 
-  player.x = clamp(player.x, player.width / 2, viewWidth - player.width / 2);
+  player.x = clamp(player.x, player.width * 0.28, viewWidth - player.width * 0.28);
   player.y = viewHeight * 0.82;
-  player.glow = Math.max(0, player.glow - dt * 0.007);
-  player.fireBreath = player.firing ? Math.min(1, player.fireBreath + dt * 0.01) : Math.max(0, player.fireBreath - dt * 0.015);
+  player.glow = Math.max(0, player.glow - dt * 0.008);
+  player.firePulse += dt * 0.02;
 
   enemyTimer += dt;
   orbTimer += dt;
   bulletTimer += dt;
 
-  const enemyDelay = Math.max(260, 900 - player.power * 20);
-  const bulletDelay = Math.max(100, 340 - player.power * 10);
+  const enemyDelay = Math.max(280, 900 - player.power * 18);
+  const bulletDelay = Math.max(95, 270 - player.power * 10);
 
   if (enemyTimer >= enemyDelay) {
     spawnEnemy();
     enemyTimer = 0;
   }
 
-  if (orbTimer >= 1250) {
+  if (orbTimer >= 1300) {
     spawnOrb();
     orbTimer = 0;
   }
@@ -218,18 +210,15 @@ function update(dt) {
 
   for (const enemy of enemies) enemy.y += enemy.speed * dt * 0.06;
   for (const orb of orbs) orb.y += orb.speed * dt * 0.06;
-  for (const bullet of bullets) {
-    bullet.x += bullet.vx * dt * 0.06;
-    bullet.y -= bullet.speed * dt * 0.06;
-  }
+  for (const bullet of bullets) bullet.y -= bullet.speed * dt * 0.06;
 
   enemies = enemies.filter(enemy => enemy.y < viewHeight + 60 && enemy.hp > 0);
   orbs = orbs.filter(orb => orb.y < viewHeight + 40);
-  bullets = bullets.filter(bullet => bullet.y > -30 && bullet.x > -20 && bullet.x < viewWidth + 20);
+  bullets = bullets.filter(bullet => bullet.y > -30);
 
-  const playerHitRadius = 18;
+  const playerHitRadius = 28;
   for (const enemy of enemies) {
-    if (circleHit(enemy.x, enemy.y, enemy.radius, player.x, player.y, playerHitRadius)) {
+    if (circleHit(enemy.x, enemy.y, enemy.radius, player.x, player.y - 6, playerHitRadius)) {
       endGame();
       return;
     }
@@ -248,23 +237,20 @@ function update(dt) {
 
   for (let i = bullets.length - 1; i >= 0; i--) {
     const bullet = bullets[i];
-    let used = false;
     for (let j = enemies.length - 1; j >= 0; j--) {
       const enemy = enemies[j];
       if (circleHit(bullet.x, bullet.y, bullet.radius, enemy.x, enemy.y, enemy.radius)) {
         enemy.hp -= bullet.damage;
         bullets.splice(i, 1);
-        used = true;
         if (enemy.hp <= 0) {
           score += 20;
-          if (Math.random() < 0.3) {
-            orbs.push({ x: enemy.x, y: enemy.y, radius: 10, speed: 2.1 });
+          if (Math.random() < 0.28) {
+            orbs.push({ x: enemy.x, y: enemy.y, radius: 10, speed: 2.2 });
           }
         }
         break;
       }
     }
-    if (used) continue;
   }
 
   score += dt * 0.004;
@@ -275,165 +261,246 @@ function drawBackground() {
   for (const star of stars) {
     ctx.beginPath();
     ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
     ctx.fill();
   }
+}
+
+function drawEnemy(enemy) {
+  ctx.beginPath();
+  ctx.arc(enemy.x, enemy.y, enemy.radius + 10, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,70,90,0.16)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#f85b62";
+  ctx.fill();
+
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(enemy.x - enemy.radius * 0.26, enemy.y - enemy.radius * 0.12, 3.2, 0, Math.PI * 2);
+  ctx.arc(enemy.x + enemy.radius * 0.26, enemy.y - enemy.radius * 0.12, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawOrb(orb) {
+  ctx.beginPath();
+  ctx.arc(orb.x, orb.y, orb.radius + 8, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(90,185,255,0.18)";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#64c8ff";
+  ctx.fill();
+}
+
+function drawBullet(bullet) {
+  ctx.beginPath();
+  ctx.arc(bullet.x, bullet.y, bullet.radius + 4, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,180,80,0.2)";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffd36b";
+  ctx.fill();
 }
 
 function drawDragon() {
   const x = player.x;
   const y = player.y;
-  const flap = Math.sin(performance.now() * 0.015) * 8;
-  const glowSize = 24 + player.glow * 18;
+  const pulse = Math.sin(player.firePulse) * 0.5 + 0.5;
 
-  const gradient = ctx.createRadialGradient(x, y, 6, x, y, glowSize + 10);
-  gradient.addColorStop(0, "rgba(80,220,255,0.45)");
-  gradient.addColorStop(1, "rgba(80,220,255,0)");
+  ctx.save();
+  ctx.translate(x, y);
+
+  // aura
+  const aura = ctx.createRadialGradient(0, 0, 8, 0, 0, 54 + player.glow * 14);
+  aura.addColorStop(0, "rgba(90,210,255,0.28)");
+  aura.addColorStop(1, "rgba(90,210,255,0)");
   ctx.beginPath();
-  ctx.arc(x, y, glowSize + 8, 0, Math.PI * 2);
-  ctx.fillStyle = gradient;
+  ctx.arc(0, 0, 54 + player.glow * 14, 0, Math.PI * 2);
+  ctx.fillStyle = aura;
   ctx.fill();
 
-  // Wings
-  ctx.fillStyle = "#4fd6ff";
-  ctx.beginPath();
-  ctx.moveTo(x - 8, y - 4);
-  ctx.quadraticCurveTo(x - 34, y - 28 - flap, x - 18, y + 3);
-  ctx.quadraticCurveTo(x - 30, y + 10, x - 6, y + 8);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(x - 2, y - 2);
-  ctx.quadraticCurveTo(x - 24, y + 22 + flap * 0.4, x - 5, y + 12);
-  ctx.quadraticCurveTo(x - 18, y + 18, x + 2, y + 8);
-  ctx.closePath();
-  ctx.fill();
-
-  // Tail
-  ctx.strokeStyle = "#2cb7e8";
-  ctx.lineWidth = 7;
+  // tail
+  ctx.strokeStyle = "#1b6ca8";
   ctx.lineCap = "round";
+  ctx.lineWidth = 10;
   ctx.beginPath();
-  ctx.moveTo(x - 18, y + 2);
-  ctx.quadraticCurveTo(x - 34, y + 6, x - 42, y - 2);
+  ctx.moveTo(0, 16);
+  ctx.quadraticCurveTo(-4, 38, 0, 62);
+  ctx.quadraticCurveTo(5, 82, -3, 100);
   ctx.stroke();
 
-  // Body
-  ctx.fillStyle = "#27c1ff";
+  ctx.fillStyle = "#4ec4ff";
   ctx.beginPath();
-  ctx.ellipse(x, y, 22, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Belly
-  ctx.fillStyle = "#a6efff";
-  ctx.beginPath();
-  ctx.ellipse(x + 3, y + 2, 11, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Neck and head
-  ctx.fillStyle = "#27c1ff";
-  ctx.beginPath();
-  ctx.ellipse(x + 22, y - 3, 13, 10, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Horns
-  ctx.fillStyle = "#d7f8ff";
-  ctx.beginPath();
-  ctx.moveTo(x + 27, y - 12);
-  ctx.lineTo(x + 31, y - 21);
-  ctx.lineTo(x + 22, y - 15);
+  ctx.moveTo(-3, 100);
+  ctx.lineTo(-12, 116);
+  ctx.lineTo(0, 110);
+  ctx.lineTo(12, 116);
+  ctx.lineTo(3, 100);
   ctx.closePath();
   ctx.fill();
 
+  // left wing
   ctx.beginPath();
-  ctx.moveTo(x + 19, y - 12);
-  ctx.lineTo(x + 20, y - 21);
-  ctx.lineTo(x + 14, y - 14);
+  ctx.moveTo(-10, -12);
+  ctx.quadraticCurveTo(-45, -26, -74, -6);
+  ctx.quadraticCurveTo(-88, 5, -84, 20);
+  ctx.quadraticCurveTo(-60, 12, -32, 18);
+  ctx.quadraticCurveTo(-18, 8, -8, 2);
   ctx.closePath();
+  ctx.fillStyle = "#2c86c9";
   ctx.fill();
-
-  // Eye
-  ctx.fillStyle = "#04131f";
+  ctx.strokeStyle = "rgba(200,240,255,0.25)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(x + 26, y - 5, 2.3, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(-12, -8);
+  ctx.lineTo(-60, -8);
+  ctx.moveTo(-12, -2);
+  ctx.lineTo(-44, 8);
+  ctx.moveTo(-12, 4);
+  ctx.lineTo(-30, 18);
+  ctx.stroke();
 
-  // Snout
-  ctx.fillStyle = "#a6efff";
+  // right wing
   ctx.beginPath();
-  ctx.ellipse(x + 32, y - 1, 7, 4.5, 0, 0, Math.PI * 2);
+  ctx.moveTo(10, -12);
+  ctx.quadraticCurveTo(45, -26, 74, -6);
+  ctx.quadraticCurveTo(88, 5, 84, 20);
+  ctx.quadraticCurveTo(60, 12, 32, 18);
+  ctx.quadraticCurveTo(18, 8, 8, 2);
+  ctx.closePath();
+  ctx.fillStyle = "#2c86c9";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(12, -8);
+  ctx.lineTo(60, -8);
+  ctx.moveTo(12, -2);
+  ctx.lineTo(44, 8);
+  ctx.moveTo(12, 4);
+  ctx.lineTo(30, 18);
+  ctx.stroke();
+
+  // body silhouette
+  ctx.beginPath();
+  ctx.moveTo(0, -56);
+  ctx.bezierCurveTo(-16, -46, -20, -24, -18, -4);
+  ctx.bezierCurveTo(-16, 22, -13, 46, -6, 66);
+  ctx.lineTo(6, 66);
+  ctx.bezierCurveTo(13, 46, 16, 22, 18, -4);
+  ctx.bezierCurveTo(20, -24, 16, -46, 0, -56);
+  ctx.closePath();
+  ctx.fillStyle = "#247fbe";
   ctx.fill();
 
-  // Fire breath while firing
-  if (player.fireBreath > 0.05) {
-    const len = 18 + player.fireBreath * 22;
-    ctx.fillStyle = `rgba(255, ${160 + Math.floor(player.fireBreath * 60)}, 60, 0.9)`;
+  // belly / highlights
+  ctx.beginPath();
+  ctx.moveTo(0, -30);
+  ctx.bezierCurveTo(-9, -22, -8, 12, -4, 46);
+  ctx.lineTo(4, 46);
+  ctx.bezierCurveTo(8, 12, 9, -22, 0, -30);
+  ctx.closePath();
+  ctx.fillStyle = "#8cdcff";
+  ctx.fill();
+
+  // dorsal spikes
+  ctx.fillStyle = "#d8f5ff";
+  for (let sy = -46; sy <= 52; sy += 13) {
     ctx.beginPath();
-    ctx.moveTo(x + 35, y - 4);
-    ctx.quadraticCurveTo(x + 40 + len, y, x + 35, y + 4);
+    ctx.moveTo(0, sy - 8);
+    ctx.lineTo(-4, sy + 3);
+    ctx.lineTo(4, sy + 3);
     ctx.closePath();
     ctx.fill();
   }
-}
 
-function drawEnemies() {
-  for (const enemy of enemies) {
+  // head
+  ctx.beginPath();
+  ctx.moveTo(0, -68);
+  ctx.lineTo(-15, -50);
+  ctx.lineTo(-12, -34);
+  ctx.lineTo(0, -28);
+  ctx.lineTo(12, -34);
+  ctx.lineTo(15, -50);
+  ctx.closePath();
+  ctx.fillStyle = "#1f79b8";
+  ctx.fill();
+
+  // snout
+  ctx.beginPath();
+  ctx.moveTo(-8, -44);
+  ctx.quadraticCurveTo(0, -62, 8, -44);
+  ctx.lineTo(5, -31);
+  ctx.lineTo(-5, -31);
+  ctx.closePath();
+  ctx.fillStyle = "#8cdcff";
+  ctx.fill();
+
+  // horns
+  ctx.fillStyle = "#e9ffff";
+  ctx.beginPath();
+  ctx.moveTo(-7, -56);
+  ctx.lineTo(-15, -76);
+  ctx.lineTo(-4, -61);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(7, -56);
+  ctx.lineTo(15, -76);
+  ctx.lineTo(4, -61);
+  ctx.closePath();
+  ctx.fill();
+
+  // eyes
+  ctx.fillStyle = "#041127";
+  ctx.beginPath();
+  ctx.arc(-4, -42, 2.2, 0, Math.PI * 2);
+  ctx.arc(4, -42, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // front claws
+  ctx.strokeStyle = "#d8f5ff";
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(-13, 16);
+  ctx.lineTo(-18, 25);
+  ctx.moveTo(-7, 18);
+  ctx.lineTo(-10, 28);
+  ctx.moveTo(13, 16);
+  ctx.lineTo(18, 25);
+  ctx.moveTo(7, 18);
+  ctx.lineTo(10, 28);
+  ctx.stroke();
+
+  // fire breath when touching
+  if (player.firing) {
+    const fireLen = 14 + pulse * 10;
     ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, enemy.radius + 8, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,80,80,0.16)";
+    ctx.moveTo(-4, -58);
+    ctx.quadraticCurveTo(0, -74 - fireLen, 4, -58);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,210,90,0.95)";
     ctx.fill();
 
-    ctx.fillStyle = "#f05656";
     ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#fff0f0";
-    ctx.beginPath();
-    ctx.arc(enemy.x - enemy.radius * 0.25, enemy.y - enemy.radius * 0.15, 2.5, 0, Math.PI * 2);
-    ctx.arc(enemy.x + enemy.radius * 0.25, enemy.y - enemy.radius * 0.15, 2.5, 0, Math.PI * 2);
+    ctx.moveTo(-2, -58);
+    ctx.quadraticCurveTo(0, -68 - fireLen, 2, -58);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,120,50,0.95)";
     ctx.fill();
   }
-}
 
-function drawOrbs() {
-  for (const orb of orbs) {
-    ctx.beginPath();
-    ctx.arc(orb.x, orb.y, orb.radius + 7, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(80,180,255,0.2)";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#66ccff";
-    ctx.fill();
-  }
-}
-
-function drawBullets() {
-  for (const bullet of bullets) {
-    const gradient = ctx.createRadialGradient(bullet.x, bullet.y, 1, bullet.x, bullet.y, bullet.radius + 5);
-    gradient.addColorStop(0, "rgba(255,255,200,1)");
-    gradient.addColorStop(1, "rgba(255,120,40,0)");
-    ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, bullet.radius + 4, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffb347";
-    ctx.fill();
-  }
+  ctx.restore();
 }
 
 function draw() {
   ctx.clearRect(0, 0, viewWidth, viewHeight);
   drawBackground();
-  drawOrbs();
-  drawEnemies();
-  drawBullets();
+  for (const orb of orbs) drawOrb(orb);
+  for (const enemy of enemies) drawEnemy(enemy);
+  for (const bullet of bullets) drawBullet(bullet);
   drawDragon();
 }
 
@@ -458,7 +525,7 @@ canvas.addEventListener("touchstart", (e) => {
   activeTouchId = touch.identifier;
   dragging = true;
   player.firing = true;
-  bulletTimer = 9999;
+  bulletTimer = 999;
   const touchX = getCanvasXFromClientX(touch.clientX);
   dragOffsetX = touchX - player.x;
 }, { passive: false });
@@ -469,15 +536,14 @@ canvas.addEventListener("touchmove", (e) => {
   for (const touch of e.touches) {
     if (touch.identifier === activeTouchId) {
       const touchX = getCanvasXFromClientX(touch.clientX);
-      player.x = touchX - dragOffsetX;
-      player.x = clamp(player.x, player.width / 2, viewWidth - player.width / 2);
+      player.x = clamp(touchX - dragOffsetX, player.width * 0.28, viewWidth - player.width * 0.28);
       break;
     }
   }
 }, { passive: false });
 
-function releaseTouch(changedTouches) {
-  for (const touch of changedTouches) {
+function stopTouch(e) {
+  for (const touch of e.changedTouches) {
     if (touch.identifier === activeTouchId) {
       activeTouchId = null;
       dragging = false;
@@ -487,8 +553,8 @@ function releaseTouch(changedTouches) {
   }
 }
 
-canvas.addEventListener("touchend", (e) => releaseTouch(e.changedTouches));
-canvas.addEventListener("touchcancel", (e) => releaseTouch(e.changedTouches));
+canvas.addEventListener("touchend", stopTouch);
+canvas.addEventListener("touchcancel", stopTouch);
 
 document.addEventListener("click", (e) => {
   if (e.target && e.target.id === "startBtn") startGame();
@@ -496,9 +562,7 @@ document.addEventListener("click", (e) => {
 
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("orientationchange", resizeCanvas);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", resizeCanvas);
-}
+if (window.visualViewport) window.visualViewport.addEventListener("resize", resizeCanvas);
 
 resizeCanvas();
 draw();
